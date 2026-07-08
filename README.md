@@ -1,2 +1,1 @@
-# Zero-Trust-Runtime-Threat-Simulation-Platform
-Zero-trust runtime threat simulation — an AI red-team agent attacks a deliberately vulnerable app while a rule-based blue-team engine detects and blocks it in real time.
+A fully self-contained security simulation platform. A deliberately vulnerable web app runs alongside an AI-powered "attacker" agent that automatically probes it for weaknesses (brute force, SQL injection, credential stuffing), and a rule-based "defender" engine that detects attacks from live logs and auto-blocks offending IPs. A live dashboard visualizes the battle and generates a final scorecard — attacks attempted, blocked vs. succeeded, Mean Time To Detect (MTTD), and Mean Time To Remediate (MTTR). Built entirely for local/sandboxed use.
