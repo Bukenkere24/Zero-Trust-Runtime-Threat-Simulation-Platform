@@ -1,0 +1,65 @@
+services:
+  target-app:
+    build: ./target-app
+    ports:
+      - "5000:5000"
+    volumes:
+      - shared-data:/app/data
+    networks:
+      - sim-net
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:5000/health')"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  defense-engine:
+    build: ./defense-engine
+    ports:
+      - "5001:5001"
+    volumes:
+      - shared-data:/app/data
+    networks:
+      - sim-net
+    depends_on:
+      target-app:
+        condition: service_healthy
+
+  attacker-agent:
+    build: ./attacker-agent
+    ports:
+      - "5002:5002"
+    environment:
+      - TARGET_URL=http://target-app:5000
+      - ATTACK_LOG_PATH=/app/data/attack_log.json
+      # LLM is OFF by default (free heuristic brain). To enable: set USE_LLM=1 and provide a key.
+      - USE_LLM=${USE_LLM:-0}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
+    volumes:
+      - shared-data:/app/data
+    networks:
+      - sim-net
+    depends_on:
+      target-app:
+        condition: service_healthy
+
+  dashboard:
+    build:
+      context: ./dashboard
+      args:
+        VITE_ATTACKER_URL: http://localhost:5002
+        VITE_DEFENSE_URL: http://localhost:5001
+    ports:
+      - "5173:5173"
+    networks:
+      - sim-net
+    depends_on:
+      - attacker-agent
+      - defense-engine
+
+volumes:
+  shared-data:
+
+networks:
+  sim-net:
+    driver: bridge
