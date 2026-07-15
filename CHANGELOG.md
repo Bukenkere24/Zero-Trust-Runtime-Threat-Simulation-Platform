@@ -67,3 +67,39 @@
 
 
 
+
+## 2026-07-15 — Full four-service verification (target-app + defense-engine + attacker-agent)
+
+Ran the complete system locally (outside Docker) for the first time and verified the
+full attack -> detect -> block loop end-to-end using the real attacker-agent.
+
+### Confirmed working
+- attacker-agent's heuristic decision engine (USE_LLM=0 path): correctly leads with
+  sql_injection_login, then adapts round-to-round based on prior outcomes
+  ("Avoiding [...], which the defense already blocked").
+- Round 1 SQL injection against /login succeeded (200, bypassed auth), was picked up
+  by defense-engine's log tailer ~1.6s later, written to alerts.log, and the source IP
+  was auto-blocked within 2ms of the alert.
+- /metrics, /alerts, /blocklist, and /attack_log all agree with each other once run
+  against a genuinely clean data directory.
+
+### Bugs found and fixed locally (not yet in committed code)
+1. Missing dependency: defense-engine/requirements.txt does not list flask-cors, but
+   engine.py imports it directly - `pip install flask-cors` needed manually.
+2. Default target for local (non-Docker) runs: attacker-agent defaults to
+   http://target-app:5000 (the Docker service name), which fails to resolve outside
+   docker-compose. Must pass target_url explicitly in /start AND set TARGET_URL env
+   var - agent.py's safety.py allowlist already permits localhost/127.0.0.1, so this
+   is purely a default-value issue, not a safety restriction.
+3. All three services read DATA_DIR from an environment variable defaulting to
+   /app/data (the Docker mount path). Running locally requires explicitly setting
+   $env:DATA_DIR to a real local folder in every terminal, every session - it does
+   not persist across terminal restarts.
+4. Running two copies of api.py simultaneously on the same port caused inconsistent
+   state (blocklist edits silently reverted, alerts.log never written) - always
+   confirm `Get-Process python` shows exactly one process per service before testing.
+
+### Still to investigate
+- attacker-agent's run stopped after round 1 of a requested 10 despite no error in
+  its console output. Need to check AttackAgent.run()'s loop condition to confirm
+  whether early-exit-on-first-success is intentional design or a bug.
